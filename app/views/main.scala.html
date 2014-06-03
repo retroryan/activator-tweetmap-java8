@@ -1,0 +1,31 @@
+@(title: String)(content: Html)
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>@title</title>
+<link rel='shortcut icon' type='image/png' href='@routes.Assets.versioned("images/favicon.png")'>
+    <link rel="stylesheet" media="screen" href="@routes.Assets.versioned("lib/bootstrap/css/bootstrap.css")">
+
+    <link rel='stylesheet' href='@routes.Assets.versioned("stylesheets/main.css")'>
+    
+    <script src="@routes.Assets.versioned("lib/angularjs/angular.min.js")"></script>
+    <script type='text/javascript' src='@routes.Assets.versioned("javascripts/index.js")'></script>
+
+    <link rel='stylesheet' href='@routes.Assets.versioned("lib/leaflet/leaflet.css")'>
+    <script type='text/javascript' src='@routes.Assets.versioned("lib/leaflet/leaflet.js")'></script>
+    <script type='text/javascript' src='@routes.Assets.versioned("lib/angular-leaflet-directive/angular-leaflet-directive.min.js")'></script>
+</head>
+<body>
+    <div class="navbar navbar-fixed-top">
+        <div class="navbar-inner">
+            <div class="container-fluid">
+                <a id="titleLink" class="brand" href="/">@title</a>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        @content
+    </div>
+</body>
+</html>
