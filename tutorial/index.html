@@ -55,7 +55,7 @@
 
         public static Promise<Result> search(String query) {
             return fetchTweets(query)
-                .map(jsonNode -> ok("Json: " + jsonNode));
+                .map(jsonNode -> ok(jsonNode));
         }
 
         private static Promise<JsonNode> fetchTweets(String query) {
@@ -96,10 +96,10 @@
 </code></pre>
 
 
-<p>3. Update <a href="#code/app/views/index.scala.html" class="shortcut">index.scala.html</a> file:
+    <p>3. Update <a href="#code/app/views/index.scala.html" class="shortcut">index.scala.html</a> file:
 
 <pre><code>
-@(message: String)(implicit request: RequestHeader)
+@(message: String)
 
 @main(message) {
 
@@ -111,7 +111,52 @@
 }
 </code></pre>
 
-    <p>4. Run the app, make a query, and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
+<p>1. Create a new index.js file in <a href="#code/app/assets/javascripts" class="shortcut">/app/assets/javascripts</a> containing:</p>
+
+<pre><code>
+var app = angular.module('tweetMapApp', []);
+
+app.factory('Twitter', function($http, $timeout) {
+
+    var twitterService = {
+        tweets: [],
+        query: function (query) {
+            $http({method: 'GET', url: '/tweets', params: {query: query}}).
+                success(function (data) {
+                    twitterService.tweets = data.statuses;
+                });
+        }
+    };
+
+    return twitterService;
+});
+
+app.controller('Search', function($scope, $http, $timeout, Twitter) {
+
+    $scope.search = function() {
+        Twitter.query($scope.query);
+    };
+
+});
+
+app.controller('Tweets', function($scope, $http, $timeout, Twitter) {
+
+    $scope.tweets = [];
+
+    $scope.$watch(
+        function() {
+            return Twitter.tweets;
+        },
+        function(tweets) {
+            $scope.tweets = tweets;
+        }
+    );
+
+});
+</code></pre>
+
+
+    <p>5. Run the app, make a query, and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
 </div>
 
 <div>
