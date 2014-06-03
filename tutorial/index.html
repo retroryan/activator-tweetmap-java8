@@ -44,93 +44,70 @@
 
     <p>GET   &nbsp;&nbsp; /tweets  &nbsp;&nbsp;&nbsp;&nbsp; controllers.Tweets.search(query: String)</p>
 
-<p>2. Create a new reactive request handler in <a href="#code/app/controllers/Application.scala" class="shortcut">app/controllers/Application.scala</a>:</p>
+<p>2. Update <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a> to add a reactive request handler for /tweets:</p>
 <p></p>
  <pre><code>
-package controllers
+    public class Tweets extends Controller {
 
-import play.api.mvc.{Action, Controller}
-import scala.concurrent.Future
+        public static Result index() {
+            return ok(views.html.index.render("TweetMap"));
+        }
 
-import play.api.libs.json.{JsObject, JsValue, Json}
-import play.api.libs.json.__
+        public static Promise<Result> search(String query) {
+            return fetchTweets(query)
+                .map(jsonNode -> ok("Json: " + jsonNode));
+        }
 
-import play.api.libs.ws.WS
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
+        private static Promise<JsonNode> fetchTweets(String query) {
+            Promise<WSResponse> responsePromise = WS.url("http://twitter-search-proxy.herokuapp.com/search/tweets").setQueryParameter("q", query).get();
+            //can also map using method references - WSResponse::asJson
+            return responsePromise.map(response -> response.asJson());
+        }
 
-object Application extends Controller {
-
-     def index = Action { implicit request =>
-        Ok(views.html.index("TweetMap"))
-     }
-
-     def search(query: String) = Action.async {
-        fetchTweets(query).map(tweets => Ok(tweets))
-     }
-
-     def fetchTweets(query: String): Future[JsValue] = {
-         val tweetsFuture = WS.url("http://twitter-search-proxy.herokuapp.com/search/tweets").withQueryString("q" -> query).get()
-         tweetsFuture.map { response =>
-            response.json
-         } recover {
-            case _ => Json.obj("responses" -> Json.arr())
-         }
-     }
-}
- </code></pre>
+    }
+</code></pre>
 
     <p>3. Test it: <a href="http://localhost:9000/tweets?query=typesafe" target="_blank">http://localhost:9000/tweets?query=typesafe</a></p>
     <p></p>
 </div>
 
 <div>
-    <h2>CoffeeScript Asset Compiler</h2>
+    <h2>AngularJS UI</h2>
     <ul>
         <li>Reactive Requests</li>
         <li>Asset Compiler</li>
-        <li>CoffeeScript</li>
+        <li>JavaScript</li>
     </ul>
 
-<p>1. Create a new index.coffee file in <a href="#code/app/assets/javascripts" class="shortcut">/app/assets/javascripts</a> containing:</p>
+<p>1. The <a href="#code/build.sbt" class="shortcut">build.sbt</a> file already has dependencies on AngularJS and Bootstrap:</p>
 
-<p><strong>Note that coffee script is indented with 2 spaces! Verify the indentation if the compilation is not working</strong></p>
+    <code>
+        <pre>
+"org.webjars" % "bootstrap" % "3.0.0",
+"org.webjars" % "angularjs" % "1.2.16",
+        </pre>
+    </code>
+
+<p>2.  AngularJS has already been enabled in the <a href="#code/app/views/main.scala.html" class="shortcut">main twirl template</a></p>
 
 <pre><code>
-$ ->
-  $("#queryForm").submit (event) ->
-    event.preventDefault()
-    query = $("#twitterQuery").val()
-    $.get "/tweets?query=" + query, (data) ->
-      displayTweets(data)
-
-    displayTweets = (tweets) ->
-      $("#tweets").empty()
-      $.each tweets.statuses, (index, tweet) ->
-        $("#tweets").append $("&ltli&gt").text(tweet.text)
+&lt;html ng-app="tweetMapApp"&gt;
+&lt;script src="@routes.Assets.versioned("lib/angularjs/angular.min.js")"&gt;&lt;/script&gt;
 </code></pre>
 
 
-<p>2. Update the <a href="#code/app/views/main.scala.html" class="shortcut">main.scala.html</a> file replacing the contents of <pre><code> &ltdiv class="container-fluid"&gt </code></pre> with:
-
-<pre><code>
-&lt;a href="#" class="brand pull-left"&gt;@title&lt;/a&gt;
-&lt;form id="queryForm" class="navbar-search pull-left"&gt;
-    &lt;input id="twitterQuery" name="twitterQuery" type="text" class="search-query" placeholder="Search"&gt;
-&lt;/form&gt;
-</code></pre>
-
-
-<p>3. Replace the contents of the <a href="#code/app/views/index.scala.html" class="shortcut">index.scala.html</a> file:</p>
+<p>3. Update <a href="#code/app/views/index.scala.html" class="shortcut">index.scala.html</a> file:
 
 <pre><code>
 @(message: String)(implicit request: RequestHeader)
 
 @main(message) {
 
-    &ltscript type='text/javascript' src='@routes.Assets.at("javascripts/index.min.js")'&gt&lt/script&gt
-
-    &ltul id="tweets"&gt&lt/ul&gt
-
+    &lt;div ng-controller="Tweets"&gt;
+        &lt;ul&gt;
+            &lt;li ng-repeat="tweet in tweets"&gt;{{tweet.text}}&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/div&gt;
 }
 </code></pre>
 
