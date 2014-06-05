@@ -328,9 +328,30 @@ public class UserActor extends AbstractActor {
     <p>1. Update the Websocket code to return an Actor in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a></p>
 
 <pre><code>
+
+public static WebSocket&lt;JsonNode&gt; ws() {
+    return WebSocket.whenReady((in, out) -> {
+
+        ActorRef userActor = Akka.system().actorOf(UserActor.props(json -> out.write(json)));
+
+        in.onMessage(jsonNode -> {
+            userActor.tell(jsonNode, ActorRef.noSender());
+        });
+
+        in.onClose(() -> {
+            Akka.system().stop(userActor);
+        });
+    });
+}
+
+
+/** Could also use the new Play 2.3 withActor function
     public static WebSocket&lt;JsonNode&gt; ws() {
         return WebSocket.withActor(UserActor::props);
     }
+**/
+
+
 </code></pre>
 
 <p>5. Verify the tweets are being refreshed: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
