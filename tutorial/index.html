@@ -83,7 +83,7 @@ public class Tweets extends Controller {
      * @param ignored
      * @return
      */
-     public static ObjectNode errorResponse(Throwable ignored) {
+     public static JsonNode errorResponse(Throwable ignored) {
          return Json.newObject().put("error", "Could not fetch the tweets");
      }
 
@@ -97,8 +97,7 @@ public class Tweets extends Controller {
 <div>
     <h2>AngularJS UI</h2>
     <ul>
-        <li>Reactive Requests</li>
-        <li>Asset Compiler</li>
+        <li>Reactive UI</li>
         <li>JavaScript</li>
     </ul>
 
@@ -119,12 +118,9 @@ public class Tweets extends Controller {
 </code></pre>
 
 
-
-
-<p>3. Update the index.js file in <a href="#code/app/assets/javascripts" class="shortcut">/app/assets/javascripts</a> to call the rest end point:</p>
+<p>3. Add the following to the index.js file in <a href="#code/app/assets/javascripts" class="shortcut">/app/assets/javascripts</a> to fetch the tweets:</p>
 
 <pre><code>
-var app = angular.module('tweetMapApp', []);
 
 app.factory('Twitter', function($http, $timeout) {
 
@@ -179,9 +175,6 @@ app.controller('Tweets', function($scope, $http, $timeout, Twitter) {
     &lt;/div&gt;
 }
 </code></pre>
-
-
-
     <p>5. Run the app, make a query, and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
 </div>
 
@@ -230,6 +223,8 @@ public static WebSocket&lt;JsonNode&gt; ws() {
     return twitterService;
 </code></pre>
 
+    <p>5. Run the app and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
+
 
 </div>
 
@@ -245,15 +240,10 @@ package actors;
 import akka.actor.*;
 import akka.japi.pf.ReceiveBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
-import play.libs.F;
-import play.libs.Json;
-import play.libs.ws.WS;
-import play.libs.ws.WSResponse;
-import play.mvc.Http;
+import controllers.Tweets;
 import scala.concurrent.duration.Duration;
 
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class UserActor extends AbstractActor {
@@ -292,12 +282,25 @@ public class UserActor extends AbstractActor {
             match(JsonNode.class, jsonNode -> {
                 String query = jsonNode.findPath("query").textValue();
                 optQuery = Optional.of(query);
-                Tweets.runFetchTweets(query);
+                runFetchTweets(query);
             }).
             match(Update.class, update -> optQuery.ifPresent(this::runFetchTweets)).
             matchAny(o -> System.out.println("received unknown message")).build()
         );
     }
+
+    /**
+    * Fetch the latest tweets for a given query and send the results to
+    * the out actor - which in turns sends it back up to the client via a websocket.
+    *
+    * @param query
+    */
+    private void runFetchTweets(String query) {
+        Tweets.fetchTweets(query).onRedeem(json -> {
+            out.tell(json, self());
+        });
+    }
+
 
     /**
     * The Update class is used to send a message to this actor to
@@ -330,6 +333,9 @@ public class UserActor extends AbstractActor {
     }
 </code></pre>
 
+<p>5. Verify the tweets are being refreshed: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
+
+
 </div>
 
 <div>
@@ -355,7 +361,7 @@ public class UserActor extends AbstractActor {
             JsonNode jsonNode = response.asJson();
             transformStatusResponses(jsonNode);
             return jsonNode;
-        })
+        });
     }
 
 
@@ -419,10 +425,10 @@ public class UserActor extends AbstractActor {
     <p>4. Update the first line of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> with:</p>
 
 <pre><code>
-    var app = angular.module('myApp', ["leaflet-directive"]);
+    var app = angular.module('tweetMapApp', ["leaflet-directive"]);
 </code></pre>
 
-    <p>5. Update the app.controller('Tweets' section of the <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> file with the following:</p>
+    <p>5. Update the app.controller('Tweets' ... section of the <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> file with the following:</p>
 
 <pre><code>
     $scope.tweets = [];
@@ -437,8 +443,8 @@ public class UserActor extends AbstractActor {
 
             $scope.markers = tweets.map(function(tweet) {
                 return {
-                    lng: tweet.coordinates.coordinates[0],
-                    lat: tweet.coordinates.coordinates[1],
+                    lng: tweet.coordinates[0],
+                    lat: tweet.coordinates[1],
                     message: tweet.text,
                     focus: true
                 }
