@@ -43,6 +43,9 @@
         </ul>
     </p>
 
+
+    <p>Play Java uses Promises to execute asynchronous tasks in the background.  The Promise is the handle to a future result.  A callback in the form of a Java Lambda is added to the Promise that gets called when the promise completes and optionally a Java Lambda to the recover to call when the callback fails.</p>
+    <p>The primary way of adding a callback to a Promise is to add a map method that essentially means map the result of the Promise to a new value.  Then when the promise completes the new value is returned as the response.</p>
     <p>1. Create a new route in<a href="#code/conf/routes" class="shortcut">conf/routes</a> with the following route:</p>
 
     <p>GET   &nbsp;&nbsp; /tweets  &nbsp;&nbsp;&nbsp;&nbsp; controllers.Tweets.search(query: String)</p>
@@ -50,12 +53,13 @@
 <p>2. Update <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a> to add a reactive request handler for /tweets:</p>
 <p></p>
  <pre><code>
-public class Tweets extends Controller {
 
-    public static Result index() {
-        return ok(views.html.index.render("TweetMap"));
-    }
-
+    /**
+    * A reactive request is made in Play by returning a Promise of a result.  This makes the request asynchronous
+    * since the server doesn't block waiting for the response.  This frees the server thread to handle other requests.
+    * The callback to the Promise is added as a map, which maps the results to a new value when the Promise completes.
+    * The results of the Promise in this example are mapped to a result (HTTP 200 OK) that gets returned to the client.
+    **/
     public static Promise&lt;Result&gt; search(String query) {
         return fetchTweets(query)
             .map(jsonNode -> ok(jsonNode));
@@ -64,6 +68,9 @@ public class Tweets extends Controller {
      /**
      * Fetch the latest tweets and return the Promise of the json results.
      * This fetches the tweets asynchronously and fulfills the promise when the results are returned.
+     * The results are first filtered and only returned if the result status was OK.
+     * Then the results are mapped (or transformed) to JSON.
+     * Finally a recover is added to the Promise to return an error Json if the tweets couldn't be fetched.
      *
      * @param query
      * @return
@@ -87,7 +94,6 @@ public class Tweets extends Controller {
          return Json.newObject().put("error", "Could not fetch the tweets");
      }
 
- }
 </code></pre>
 
     <p>3. Test it: <a href="http://localhost:9000/tweets?query=typesafe" target="_blank">http://localhost:9000/tweets?query=typesafe</a></p>
@@ -181,6 +187,7 @@ app.controller('Tweets', function($scope, $http, $timeout, Twitter) {
 <div>
     <h2>Add Websockets</h2>
 
+    <p>Websockets provide a  bi-directional, full-duplex communications channels over a single TCP connection.  They are created in Play using a normal route.  The difference is the controller returns a WebSocket instead of a Result.</p>
     <p>1. Add a route for the websocket connection to the <a href="#code/conf/routes" class="shortcut">routes </a>file:</p>
 
     <p>GET &nbsp;&nbsp /ws     &nbsp;&nbsp;&nbsp;&nbsp;              controllers.Tweets.ws</p>
@@ -188,6 +195,18 @@ app.controller('Tweets', function($scope, $http, $timeout, Twitter) {
     <p>2. Add a new controller method to create the Websocket in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java:</a></p>
 
 <pre><code>
+//add this to the import section of the file
+import play.mvc.WebSocket;
+
+//add to body of controller
+/**
+* Create a WebSocket controller that converts the data sent in to JSON.
+* This sets up the WebSocket by adding Java Lambdas to the input channel and the on close event.
+* The Java Lambda in onMessage will get called whenever a new message comes in through the channel.
+* In this example the message is parsed as a json query and then the tweets are fetched based on that query.
+* Fetching tweets returns a promise and the callback to that promise (onRedeem) is a Java Lambda that writes
+* the results out to the client.
+*/
 public static WebSocket&lt;JsonNode&gt; ws() {
     return WebSocket.whenReady((in, out) -> {
 
@@ -202,7 +221,7 @@ public static WebSocket&lt;JsonNode&gt; ws() {
 }
 </code></pre>
 
-    <p>4. Update the app.factory section of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a>with:
+    <p>4. Update the app.factory section of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> replacing the var twitterService = ... with :
 
 <pre><code>
     var ws = new WebSocket("ws://localhost:9000/ws");
@@ -279,6 +298,7 @@ public class UserActor extends AbstractActor {
         this.out = out;
 
         receive(ReceiveBuilder.
+            //if the client is sending a b
             match(JsonNode.class, jsonNode -> {
                 String query = jsonNode.findPath("query").textValue();
                 optQuery = Optional.of(query);
@@ -329,13 +349,18 @@ public class UserActor extends AbstractActor {
 
 <pre><code>
 
+    //add to import section
+    import actors.UserActor;
+
+
+    //add to body of controller
     public static WebSocket&lt;JsonNode&gt; ws() {
         return WebSocket.withActor(UserActor::props);
     }
 
 
 </code></pre>
-
+<p>To verify tweets are showing up it is useful to use a browser inspector and then look under network for the path ws.  Under there look at the frame and verify the requests are being sent.  In chrome the network inspector has a bug and the websocket calls are not refreshed unless you tab out and back in. </p>
 <p>5. Verify the tweets are being refreshed: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
 
 
@@ -344,7 +369,7 @@ public class UserActor extends AbstractActor {
 <div>
     <h2>Update the Twitter Search to add Geo-Coding</h2>
 
-    <p>1. Update <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a> to add geo-coding:</p>
+    <p>1. Update <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a> to add geo-coding.  Replace the existing fetchTweets method with the one below and add the additional methods.</p>
 
 
 <pre><code>
@@ -380,6 +405,7 @@ public class UserActor extends AbstractActor {
 
     /**
     * Most tweets don't actually have their geo-location set so just randomly set the latitude and longitude.
+    * And sadly there is a bug in the randomizer where the tweets tend to locate themselves near the top of the window.
     *
     * @param nextStatus
     */
