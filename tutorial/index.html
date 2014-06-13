@@ -241,6 +241,7 @@ public static WebSocket&lt;JsonNode&gt; ws() {
 
     return twitterService;
 </code></pre>
+    <p>To verify tweets are showing up it is useful to use a browser inspector and then look under network for the path ws.  Under there look at the frame and verify the requests are being sent.  In chrome the network inspector has a bug and the websocket calls are not refreshed unless you tab out and back in. </p>
 
     <p>5. Run the app and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
 
@@ -364,8 +365,8 @@ public class UserActor extends AbstractActor {
 
 
 </code></pre>
-<p>To verify tweets are showing up it is useful to use a browser inspector and then look under network for the path ws.  Under there look at the frame and verify the requests are being sent.  In chrome the network inspector has a bug and the websocket calls are not refreshed unless you tab out and back in. </p>
-<p>5. Verify the tweets are being refreshed: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
+
+<p>5. Verify that the websocket is still connecting and tweets are refreshing <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a>.  You might not be able to see the browser up because the tweets don't change.  So you will need to look at the inspector. </p>
 
 
 </div>
@@ -377,9 +378,24 @@ public class UserActor extends AbstractActor {
 
 
 <pre><code>
+    //Additional imports needed
+    import java.util.List;
+    import java.util.Random;
+
+    import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+    import com.fasterxml.jackson.databind.node.ObjectNode;
+
+    import static java.util.stream.Collectors.toList;
+    import static utils.Streams.stream;
+
+    //Replace the existing fetchTweets
+
     /**
     * Fetch the latest tweets and return the Promise of the json results.
     * This fetches the tweets asynchronously and fulfills the promise when the results are returned.
+    * The results are first filtered and only returned if the result status was OK.
+    * Then the results are mapped (or transformed) to JSON.
+    * Finally a recover is added to the Promise to return an error Json if the tweets couldn't be fetched.
     *
     * The updated fetchTweets transforms the responses as it does the mapping to add the geo-coding.
     *
