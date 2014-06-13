@@ -118,7 +118,7 @@ public class Tweets extends Controller {
 </code></pre>
 
 
-<p>3. Add the following to the index.js file in <a href="#code/app/assets/javascripts" class="shortcut">/app/assets/javascripts</a> to fetch the tweets:</p>
+<p>3. Add the following to  <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> to fetch the tweets:</p>
 
 <pre><code>
 
@@ -329,27 +329,9 @@ public class UserActor extends AbstractActor {
 
 <pre><code>
 
-public static WebSocket&lt;JsonNode&gt; ws() {
-    return WebSocket.whenReady((in, out) -> {
-
-        ActorRef userActor = Akka.system().actorOf(UserActor.props(json -> out.write(json)));
-
-        in.onMessage(jsonNode -> {
-            userActor.tell(jsonNode, ActorRef.noSender());
-        });
-
-        in.onClose(() -> {
-            Akka.system().stop(userActor);
-        });
-    });
-}
-
-
-/** Could also use the new Play 2.3 withActor function
     public static WebSocket&lt;JsonNode&gt; ws() {
         return WebSocket.withActor(UserActor::props);
     }
-**/
 
 
 </code></pre>
@@ -424,10 +406,6 @@ public static WebSocket&lt;JsonNode&gt; ws() {
 
 <div>
     <h2>Add the Tweet Map</h2>
-
-    <ul>
-        <li>WebJars</li>
-    </ul>
 
     <p>1. The webjar dependency on leaflets has already been added to <a href="#code/build.sbt" class="shortcut">build.sbt</a></p>
 
