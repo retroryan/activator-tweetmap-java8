@@ -4,8 +4,7 @@
 </head>
 <body>
 <div>
-    <p>Welcome to the Tweetmap  Java 8  Workshop! You've just created a simple Play Framework application! We will use this as
-        the starting template for the Tweetmap  Java 8  Workshop.</p>
+    <p>Welcome to the Tweetmap Java 8 Going Reactive Tutorial! This starts with a basic Play Framework application and uses it to build a reactive tweet map.</p>
 
     <p>Within the Activator UI you can:
 
@@ -34,23 +33,14 @@
 <div>
     <h2>Reactive Requests</h2>
 
-    <p>
-        <ul>
-            <li>Routes</li>
-            <li>Controllers</li>
-            <li>Views</li>
-            <li>JSON</li>
-        </ul>
-    </p>
-
-
     <p>Play Java uses Promises to execute asynchronous tasks in the background.  The Promise is the handle to a future result.  A callback in the form of a Java Lambda is added to the Promise that gets called when the promise completes.  Optionally the recover method can be called with a Java Lambda that is called when the callback fails.</p>
     <p>The primary way of adding a callback to a Promise is to add a map method that essentially means map the result of the Promise to a new value.  Then when the promise completes the new value is returned as the response.</p>
-    <p>1. Create a new route in<a href="#code/conf/routes" class="shortcut">conf/routes</a> with the following route:</p>
+
+    <p>1. Create a new route that will search Twitter by updating<a href="#code/conf/routes" class="shortcut">conf/routes</a> with the following route:</p>
 
     <p>GET   &nbsp;&nbsp; /tweets  &nbsp;&nbsp;&nbsp;&nbsp; controllers.Tweets.search(query: String)</p>
 
-<p>2. Update <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a> to add a reactive request handler for /tweets:</p>
+<p>2. Update <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a> to add a reactive request handler (or controller) for /tweets:</p>
 <p></p>
  <pre><code>
 
@@ -102,10 +92,6 @@
 
 <div>
     <h2>AngularJS UI</h2>
-    <ul>
-        <li>Reactive UI</li>
-        <li>JavaScript</li>
-    </ul>
 
 <p>1. The <a href="#code/build.sbt" class="shortcut">build.sbt</a> file already has dependencies on AngularJS and Bootstrap:</p>
 
