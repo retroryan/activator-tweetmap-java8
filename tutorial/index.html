@@ -44,7 +44,7 @@
     </p>
 
 
-    <p>Play Java uses Promises to execute asynchronous tasks in the background.  The Promise is the handle to a future result.  A callback in the form of a Java Lambda is added to the Promise that gets called when the promise completes and optionally a Java Lambda to the recover to call when the callback fails.</p>
+    <p>Play Java uses Promises to execute asynchronous tasks in the background.  The Promise is the handle to a future result.  A callback in the form of a Java Lambda is added to the Promise that gets called when the promise completes.  Optionally the recover method can be called with a Java Lambda that is called when the callback fails.</p>
     <p>The primary way of adding a callback to a Promise is to add a map method that essentially means map the result of the Promise to a new value.  Then when the promise completes the new value is returned as the response.</p>
     <p>1. Create a new route in<a href="#code/conf/routes" class="shortcut">conf/routes</a> with the following route:</p>
 
@@ -221,7 +221,7 @@ public static WebSocket&lt;JsonNode&gt; ws() {
 }
 </code></pre>
 
-    <p>4. Update the app.factory section of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> replacing the var twitterService = ... with :
+    <p>4. Update the body of the app.factory section of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> replacing the var twitterService = ... with :
 
 <pre><code>
     var ws = new WebSocket("ws://localhost:9000/ws");
@@ -298,12 +298,14 @@ public class UserActor extends AbstractActor {
         this.out = out;
 
         receive(ReceiveBuilder.
-            //if the client is sending a b
+            //A json message is from the client so parse it to get the query and fetch the tweets.
             match(JsonNode.class, jsonNode -> {
                 String query = jsonNode.findPath("query").textValue();
                 optQuery = Optional.of(query);
                 runFetchTweets(query);
             }).
+            //The Update message is sent from the scheduler.  When the Actor recieves the
+            //message fetch the tweets only if there is a query from the user.
             match(Update.class, update -> optQuery.ifPresent(this::runFetchTweets)).
             matchAny(o -> System.out.println("received unknown message")).build()
         );
@@ -343,9 +345,9 @@ public class UserActor extends AbstractActor {
 </div>
 
 <div>
-    <h2>Update the Websocket</h2>
+    <h2>Update the WebSocket</h2>
 
-    <p>1. Update the Websocket code to return an Actor in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a></p>
+    <p>1. Update the WebSocket code to return an Actor in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a></p>
 
 <pre><code>
 
@@ -355,6 +357,8 @@ public class UserActor extends AbstractActor {
 
     //add to body of controller
     public static WebSocket&lt;JsonNode&gt; ws() {
+        //create the UserActor using the static props method.  This will create the Actor with the out actor wired to the
+        //WebSocket out channel.
         return WebSocket.withActor(UserActor::props);
     }
 
@@ -377,6 +381,8 @@ public class UserActor extends AbstractActor {
     * Fetch the latest tweets and return the Promise of the json results.
     * This fetches the tweets asynchronously and fulfills the promise when the results are returned.
     *
+    * The updated fetchTweets transforms the responses as it does the mapping to add the geo-coding.
+    *
     * @param query
     * @return
     */
@@ -384,23 +390,30 @@ public class UserActor extends AbstractActor {
         Promise&lt;WSResponse&gt; responsePromise = WS.url("http://twitter-search-proxy.herokuapp.com/search/tweets").setQueryParameter("q", query).get();
         //can also map using method references - WSResponse::asJson
         return responsePromise
-        .filter(response -> response.getStatus() == Http.Status.OK)
-        .map(response -> {
-            JsonNode jsonNode = response.asJson();
-            transformStatusResponses(jsonNode);
-            return jsonNode;
-        });
+            .filter(response -> response.getStatus() == Http.Status.OK)
+            .map(response -> transformStatusResponses(response.asJson()))
+            .recover(Tweets::errorResponse);
     }
 
 
     /**
     * Transform the json responses by adding geo coordinates to each tweet.
+    * Not sure this is the best way to manipulate the Json.  Mostly an experiment
+    * using streams and json based on reactive stocks activator template.
     *
     * @param jsonNode
     */
-    private static void transformStatusResponses(JsonNode jsonNode) {
-        jsonNode.findPath("statuses")
-            .forEach(nextStatus -> setCoordinates((ObjectNode) nextStatus));
+    private static JsonNode transformStatusResponses(JsonNode jsonNode) {
+        //create a stream view of the jsonNode iterator
+        List&lt;JsonNode&gt; newJsonList = stream(jsonNode.findPath("statuses"))
+            //map the stream of json to update the values to have the geo-info
+            .map(json -> setCoordinates((ObjectNode) json))
+            .collect(toList());
+
+        ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
+        objectNode.putArray("statuses").addAll(newJsonList);
+
+        return objectNode;
     }
 
     /**
@@ -409,10 +422,9 @@ public class UserActor extends AbstractActor {
     *
     * @param nextStatus
     */
-    private static void setCoordinates(ObjectNode nextStatus) {
-        ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
-        arrayNode.add(randomLat()).add(randomLon());
-        nextStatus.set("coordinates", arrayNode);
+    private static ObjectNode setCoordinates(ObjectNode nextStatus) {
+        nextStatus.putArray("coordinates").add(randomLat()).add(randomLon());
+        return nextStatus;
     }
 
     private static Random rand = new java.util.Random();
@@ -453,7 +465,7 @@ public class UserActor extends AbstractActor {
     var app = angular.module('tweetMapApp', ["leaflet-directive"]);
 </code></pre>
 
-    <p>5. Update the app.controller('Tweets' ... section of the <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> file with the following:</p>
+    <p>5. Update the body of the app.controller('Tweets' ... section of the <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> file with the following:</p>
 
 <pre><code>
     $scope.tweets = [];
