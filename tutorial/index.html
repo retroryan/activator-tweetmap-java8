@@ -31,7 +31,7 @@
     </p>
 </div>
 <div>
-    <h2>Reactive Requests</h2>
+    <h2>Reactive Request Exercise</h2>
 
     <p>Play Java uses Promises to execute asynchronous tasks in the background.  The Promise is the handle to a future result.  A callback in the form of a Java Lambda is added to the Promise that gets called when the promise completes.  Optionally the recover method can be called with a Java Lambda that is called when the callback fails.</p>
     <p>The primary way of adding a callback to a Promise is to add a map method that essentially means map the result of the Promise to a new value.  Then when the promise completes the new value is returned as the response.</p>
@@ -51,8 +51,10 @@
     * The results of the Promise in this example are mapped to a result (HTTP 200 OK) that gets returned to the client.
     **/
     public static Promise&lt;Result&gt; search(String query) {
+
+        // part 1 - map the results of the fetch tweets to an ok result by
+        // calling the ok method on each jsonNode in the returned list of tweets
         return fetchTweets(query)
-            .map(jsonNode -> ok(jsonNode));
     }
 
      /**
@@ -67,11 +69,12 @@
      */
      public static Promise&lt;JsonNode&gt; fetchTweets(String query) {
         Promise&lt;WSResponse&gt; responsePromise = WS.url("http://twitter-search-proxy.herokuapp.com/search/tweets").setQueryParameter("q", query).get();
+        
+        //part 2 - map the response to json by calling asJson on each response
         //can also map using method references - WSResponse::asJson
+
         return responsePromise
             .filter(response -> response.getStatus() == Http.Status.OK)
-            .map(response -> response.asJson())
-            .recover(Tweets::errorResponse);
      }
 
      /**
@@ -88,6 +91,22 @@
 
     <p>3. Test it: <a href="http://localhost:9000/tweets?query=typesafe" target="_blank">http://localhost:9000/tweets?query=typesafe</a></p>
     <p></p>
+</div>
+
+<div>
+    <h2>Reactive Request Solutions</h2>
+ <pre><code>
+    //part 1
+    return fetchTweets(query)
+            .map(jsonNode -> ok(jsonNode));
+</code></pre>
+ <pre><code>
+    //part 2 - can also map using method references - WSResponse::asJson
+    return responsePromise
+            .filter(response -> response.getStatus() == Http.Status.OK)
+            .map(response -> response.asJson())
+            .recover(Tweets::errorResponse);
+</code></pre>
 </div>
 
 <div>
@@ -171,43 +190,11 @@ app.controller('Tweets', function($scope, $http, $timeout, Twitter) {
 </div>
 
 <div>
-    <h2>Add Websockets</h2>
+    <h2>Add Websockets Client</h2>
 
     <p>Websockets provide a  bi-directional, full-duplex communications channels over a single TCP connection.  They are created in Play using a normal route.  The difference is the controller returns a WebSocket instead of a Result.</p>
-    <p>1. Add a route for the websocket connection to the <a href="#code/conf/routes" class="shortcut">routes </a>file:</p>
-
-    <p>GET &nbsp;&nbsp /ws     &nbsp;&nbsp;&nbsp;&nbsp;              controllers.Tweets.ws</p>
-
-    <p>2. Add a new controller method to create the Websocket in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java:</a></p>
-
-<pre><code>
-//add this to the import section of the file
-import play.mvc.WebSocket;
-
-//add to body of controller
-/**
-* Create a WebSocket controller that converts the data sent in to JSON.
-* This sets up the WebSocket by adding Java Lambdas to the input channel and the on close event.
-* The Java Lambda in onMessage will get called whenever a new message comes in through the channel.
-* In this example the message is parsed as a json query and then the tweets are fetched based on that query.
-* Fetching tweets returns a promise and the callback to that promise (onRedeem) is a Java Lambda that writes
-* the results out to the client.
-*/
-public static WebSocket&lt;JsonNode&gt; ws() {
-    return WebSocket.whenReady((in, out) -> {
-
-        in.onMessage(jsonNode -> {
-            String query = jsonNode.findPath("query").textValue();
-            fetchTweets(query).onRedeem(json -> out.write(json));
-        });
-
-        in.onClose(() -> {
-        });
-     });
-}
-</code></pre>
-
-    <p>4. Update the body of the app.factory section of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> replacing the var twitterService = ... with :
+    
+    <p>1. Update the body of the app.factory section of <a href="#code/app/assets/javascripts/index.js" class="shortcut">index.js </a> replacing the var twitterService = ... with :
 
 <pre><code>
     var ws = new WebSocket("ws://localhost:9000/ws");
@@ -227,17 +214,83 @@ public static WebSocket&lt;JsonNode&gt; ws() {
 
     return twitterService;
 </code></pre>
-    <p>To verify tweets are showing up it is useful to use a browser inspector and then look under network for the path ws.  Under there look at the frame and verify the requests are being sent.  In chrome the network inspector has a bug and the websocket calls are not refreshed unless you tab out and back in. </p>
-
-    <p>5. Run the app and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
-
-
 </div>
 
 <div>
-    <h2>Create an Akka Actor</h2>
+    <h2>Add Websockets Exercise</h2>
 
-    <p>1. Create a new UserActor.java file in <a href="#code/app/actors" class="shortcut">/app/actors</a> containing:</p>
+    <p>1. Add a route for the websocket connection to the <a href="#code/conf/routes" class="shortcut">routes </a>file:</p>
+
+    <p>GET &nbsp;&nbsp /ws     &nbsp;&nbsp;&nbsp;&nbsp;              controllers.Tweets.ws</p>
+
+    <p>2. Add a new controller method to create the Websocket in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java:</a></p>
+
+<pre><code>
+//add this to the import section of the file
+import play.mvc.WebSocket;
+
+//add to body of controller
+/**
+* Create a WebSocket controller that converts the data sent in to JSON.
+* This sets up the WebSocket by adding Java Lambdas to the input channel and the on close event.
+* The Java Lambda in onMessage will get called whenever a new message comes in through the channel.
+* In this example the message is parsed as a json query and then the tweets are fetched based on that query.
+* Fetching tweets returns a promise and the callback to that promise (onRedeem) is a Java Lambda that writes
+* the results out to the client.
+*/
+
+//part 1 - in.onMessage takes a lambda that processes the json from the client.
+//  Call the following 2 lines on each json message passed in from the websocket:
+//  String query = jsonNode.findPath("query").textValue();
+//  fetchTweets(query).onRedeem(.... );
+//
+//part 2 - fetchTweets(query).onRedeem defines the action to be take when the json is fetched.  
+//  write the list of json out to the client by calling:
+//  out.write(json)
+//  on each json node returned from fetch tweets.
+public static WebSocket&lt;JsonNode&gt; ws() {
+    return WebSocket.whenReady((in, out) -> {
+
+        in.onMessage(...);
+
+        in.onClose(() -> {
+        });
+     });
+}
+</code></pre>
+
+<p>To verify tweets are showing up it is useful to use a browser inspector and then look under network for the path ws.  Under there look at the frame and verify the requests are being sent.  In chrome the network inspector has a bug and the websocket calls are not refreshed unless you tab out and back in. </p>
+
+    <p>5. Run the app and verify the tweets show up: <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a></p>
+</div>
+
+<div>
+    <h2>Add Websockets Solution</h2>
+<pre><code>
+    return WebSocket.whenReady((in, out) -> {
+        in.onMessage(jsonNode -> {
+            String query = jsonNode.findPath("query").textValue();
+            fetchTweets(query).onRedeem(json -> out.write(json));
+        });
+
+        in.onClose(() -> {
+        });
+     });
+     </code></pre>
+</div>
+
+<div>
+    <h2>Create an Akka Actor Exercise</h2>
+
+    <p>
+        In the following exercise use Java Optional to set the query and optionally execute code:
+  </p>
+  <p>optQuery = Optional.of(query);</p>
+  <p>optQuery.ifPresent(</p>
+
+    <p>1. Create a new UserActor.java file in <a href="#code/app/actors" class="shortcut">/app/actors</a> containing the following actor:</p>
+    <p>2. Fill in the missing match blocks to define the behavior of the actor when it recieves different messages.</p>
+    <p>Use the same behavior to handle json messages that was previously defined in the websocket handler.</p>
 
 <pre><code>
 
@@ -286,14 +339,10 @@ public class UserActor extends AbstractActor {
 
         receive(ReceiveBuilder.
             //A json message is from the client so parse it to get the query and fetch the tweets.
-            match(JsonNode.class, jsonNode -> {
-                String query = jsonNode.findPath("query").textValue();
-                optQuery = Optional.of(query);
-                runFetchTweets(query);
-            }).
+            match(JsonNode.class, ... ).
             //The Update message is sent from the scheduler.  When the Actor recieves the
             //message fetch the tweets only if there is a query from the user.
-            match(Update.class, update -> optQuery.ifPresent(this::runFetchTweets)).
+            match(Update.class, .....  ).
             matchAny(o -> System.out.println("received unknown message")).build()
         );
     }
@@ -332,7 +381,26 @@ public class UserActor extends AbstractActor {
 </div>
 
 <div>
-    <h2>Update the WebSocket</h2>
+    <h2>Create an Akka Actor Solution</h2>
+
+<pre><code>
+receive(ReceiveBuilder.
+            //A json message is from the client so parse it to get the query and fetch the tweets.
+            match(JsonNode.class, jsonNode -> {
+                String query = jsonNode.findPath("query").textValue();
+                optQuery = Optional.of(query);
+                runFetchTweets(query);
+            }).
+            //The Update message is sent from the scheduler.  When the Actor recieves the
+            //message fetch the tweets only if there is a query from the user.
+            match(Update.class, update -> optQuery.ifPresent(this::runFetchTweets)).
+            matchAny(o -> System.out.println("received unknown message")).build()
+        );
+</code></pre>
+
+</div>
+<div>
+    <h2>Update the WebSocket Exercise</h2>
 
     <p>1. Update the WebSocket code to return an Actor in <a href="#code/app/controllers/Tweets.java" class="shortcut">app/controllers/Tweets.java</a></p>
 
@@ -344,9 +412,11 @@ public class UserActor extends AbstractActor {
 
     //add to body of controller
     public static WebSocket&lt;JsonNode&gt; ws() {
-        //create the UserActor using the static props method.  This will create the Actor with the out actor wired to the
+        //create the UserActor using the static UserActor props method.  
+        //the withActor method passes an out ActorRef that is wired to the
         //WebSocket out channel.
-        return WebSocket.withActor(UserActor::props);
+        //Use this out as the out parameter for UserActor
+        return WebSocket.withActor( );
     }
 
 
@@ -354,7 +424,14 @@ public class UserActor extends AbstractActor {
 
 <p>5. Verify that the websocket is still connecting and tweets are refreshing <a href="http://localhost:9000/" target="_blank">http://localhost:9000</a>.  You might not be able to see the browser up because the tweets don't change.  So you will need to look at the inspector. </p>
 
+</div>
 
+<div>
+    <h2>Update the WebSocket Solutions</h2>
+
+<pre><code>
+    return WebSocket.withActor(UserActor::props);
+</code></pre>
 </div>
 
 <div>
@@ -492,9 +569,6 @@ public class UserActor extends AbstractActor {
     );
 
 </code></pre>
-
-
-
 
 <p>8. Go to <a href="http://localhost:9000" target="_blank">http://localhost:9000</a> to see the TweetMap!</p>
 </div>
